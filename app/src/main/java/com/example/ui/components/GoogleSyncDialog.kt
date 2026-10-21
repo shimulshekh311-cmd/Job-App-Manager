@@ -151,6 +151,36 @@ fun GoogleSyncDialog(
                     shape = RoundedCornerShape(10.dp)
                 )
 
+                // Warning if user pasted the script editor URL instead of deployed Web App URL
+                val isEditorUrl = urlText.contains("/edit") || urlText.contains("/projects/")
+                if (isEditorUrl) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        color = Color(0xFFFFF3CD),
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFC107)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Info, null, tint = Color(0xFF856404), modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Script Editor URL Detected",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFF856404)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "You pasted the Google Apps Script code editor URL (/edit). The app needs the deployed Web App URL ending in /exec.\n\nTo get your Web App URL:\n1. In Apps Script, click the blue 'Deploy' button (top right)\n2. Select 'Manage deployments'\n3. Copy the 'Web app' URL (ends with /exec)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF664D03)
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Sync status indicator

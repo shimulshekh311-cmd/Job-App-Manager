@@ -61,6 +61,11 @@ class GoogleAppsScriptClient(private val context: Context) {
     private fun parseSheetResponse(responseString: String): Result<List<JobApplication>> {
         return try {
             val trimmed = responseString.trim()
+            if (trimmed.startsWith("<!DOCTYPE", ignoreCase = true) || trimmed.startsWith("<html", ignoreCase = true)) {
+                return Result.failure(
+                    Exception("Received an HTML webpage instead of JSON API response. This happens when you paste the script editor URL (/edit) instead of the deployed Web App URL (/exec), or if 'Who has access' was not set to 'Anyone'.")
+                )
+            }
             val rawArray: JSONArray = if (trimmed.startsWith("{")) {
                 val jsonObj = JSONObject(trimmed)
                 if (jsonObj.has("data")) {
