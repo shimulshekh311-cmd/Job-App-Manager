@@ -40,6 +40,7 @@ fun JobAppManagerRoot(
 ) {
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val applications by viewModel.applications.collectAsStateWithLifecycle()
+    val rawAllApplications by viewModel.rawAllApplications.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
     val syncState by viewModel.syncState.collectAsStateWithLifecycle()
@@ -69,6 +70,7 @@ fun JobAppManagerRoot(
             HomeScreen(
                 stats = stats,
                 applications = applications,
+                allApplications = rawAllApplications,
                 searchQuery = searchQuery,
                 selectedCategory = selectedCategory,
                 syncState = syncState,

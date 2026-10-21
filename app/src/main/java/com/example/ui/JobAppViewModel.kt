@@ -60,6 +60,12 @@ class JobAppViewModel(application: Application) : AndroidViewModel(application) 
         initialValue = DashboardStats()
     )
 
+    val rawAllApplications: StateFlow<List<JobApplication>> = repository.allApplications.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     val applications: StateFlow<List<JobApplication>> = combine(
         repository.allApplications,
         _searchQuery,

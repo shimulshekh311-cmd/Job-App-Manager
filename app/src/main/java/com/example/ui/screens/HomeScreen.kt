@@ -3,7 +3,9 @@ package com.example.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,9 +30,10 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -41,7 +44,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,7 +58,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,15 +75,21 @@ import com.example.data.model.ExamCategory
 import com.example.data.model.JobApplication
 import com.example.ui.SyncUiState
 import com.example.ui.components.DashboardStatsSection
+import com.example.ui.components.FiveTablesSection
 import com.example.ui.components.JobApplicationCard
 import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.StatusFailed
+
+enum class AppViewMode {
+    CARDS,
+    TABLES
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     stats: DashboardStats,
     applications: List<JobApplication>,
+    allApplications: List<JobApplication>,
     searchQuery: String,
     selectedCategory: ExamCategory,
     syncState: SyncUiState,
@@ -95,6 +106,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    var viewMode by remember { mutableStateOf(AppViewMode.CARDS) }
 
     LaunchedEffect(syncState) {
         when (syncState) {
@@ -203,7 +215,7 @@ fun HomeScreen(
                 containerColor = EmeraldGreen,
                 contentColor = Color.White,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("New Application", fontWeight = FontWeight.Bold) },
+                text = { Text("নতুন আবেদন (New App)", fontWeight = FontWeight.Bold) },
                 modifier = Modifier.testTag("fab_add_application")
             )
         }
@@ -212,8 +224,8 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentPadding = PaddingValues(bottom = 80.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            contentPadding = PaddingValues(bottom = 88.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Dashboard Statistics Section
             item {
@@ -233,7 +245,7 @@ fun HomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("search_input"),
-                        placeholder = { Text("Search Organization, Post, or Status...") },
+                        placeholder = { Text("প্রতিষ্ঠানের নাম, পদ বা স্ট্যাটাস দিয়ে খুঁজুন...") },
                         leadingIcon = {
                             Icon(Icons.Default.Search, contentDescription = null, tint = EmeraldGreen)
                         },
@@ -256,75 +268,163 @@ fun HomeScreen(
                 }
             }
 
-            // Category Filter Tabs
+            // View Mode Switcher: Cards vs 5 Tables
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    ExamCategory.values().forEach { cat ->
-                        val count = when (cat) {
-                            ExamCategory.ALL -> stats.totalApplications
-                            ExamCategory.UPCOMING -> stats.totalApplications - stats.totalCanceled - stats.totalFailed - (stats.mcqPassed) // dynamic or filtered
-                            ExamCategory.RUNNING -> stats.mcqPassed
-                            ExamCategory.COMPLETED -> 1
-                            ExamCategory.FAILED -> stats.totalFailed
-                            ExamCategory.CANCELED -> stats.totalCanceled
+                    // Cards View Switcher Button
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { viewMode = AppViewMode.CARDS },
+                        color = if (viewMode == AppViewMode.CARDS) EmeraldGreen else MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            1.dp,
+                            if (viewMode == AppViewMode.CARDS) EmeraldGreen else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Dashboard,
+                                contentDescription = null,
+                                tint = if (viewMode == AppViewMode.CARDS) Color.White else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "কার্ড ভিউ (Cards)",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = if (viewMode == AppViewMode.CARDS) Color.White else MaterialTheme.colorScheme.onSurface
+                            )
                         }
+                    }
 
-                        FilterChip(
-                            selected = selectedCategory == cat,
-                            onClick = { onCategorySelect(cat) },
-                            label = { Text(cat.displayName()) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = EmeraldGreen,
-                                selectedLabelColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(20.dp),
-                            modifier = Modifier.testTag("filter_chip_${cat.name.lowercase()}")
-                        )
+                    // 5 Tables Switcher Button
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { viewMode = AppViewMode.TABLES },
+                        color = if (viewMode == AppViewMode.TABLES) EmeraldGreen else MaterialTheme.colorScheme.surface,
+                        border = BorderStroke(
+                            1.dp,
+                            if (viewMode == AppViewMode.TABLES) EmeraldGreen else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.TableChart,
+                                contentDescription = null,
+                                tint = if (viewMode == AppViewMode.TABLES) Color.White else MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "৫টি টেবিল ভিউ (Tables)",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = if (viewMode == AppViewMode.TABLES) Color.White else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             }
 
-            // Section Header
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "${selectedCategory.displayName()} Applications (${applications.size})",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = EmeraldGreen
-                    )
-                }
-            }
-
-            // Applications Cards or Empty State
-            if (applications.isEmpty()) {
+            // Mode 1: TABLES VIEW (Shows all 5 horizontally scrollable tables!)
+            if (viewMode == AppViewMode.TABLES) {
                 item {
-                    EmptyApplicationsView(
-                        category = selectedCategory,
-                        query = searchQuery,
-                        onAddApplication = onAddApplication
+                    val filteredAll = allApplications.filter { app ->
+                        searchQuery.isBlank() ||
+                                app.orgName.contains(searchQuery, ignoreCase = true) ||
+                                app.postName.contains(searchQuery, ignoreCase = true) ||
+                                app.category.displayName().contains(searchQuery, ignoreCase = true) ||
+                                app.userId.contains(searchQuery, ignoreCase = true)
+                    }
+
+                    FiveTablesSection(
+                        allApplications = filteredAll,
+                        onEdit = onEditApplication,
+                        onDelete = onDeleteApplication,
+                        onClearFiles = onClearDriveFiles
                     )
                 }
             } else {
-                items(applications, key = { it.id.toString() + it.orgName + it.postName }) { app ->
-                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        JobApplicationCard(
-                            application = app,
-                            onEdit = { onEditApplication(app) },
-                            onDelete = { onDeleteApplication(app) },
-                            onClearFiles = { onClearDriveFiles(app) }
+                // Mode 2: CARDS VIEW
+                // Category Filter Tabs
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ExamCategory.values().forEach { cat ->
+                            FilterChip(
+                                selected = selectedCategory == cat,
+                                onClick = { onCategorySelect(cat) },
+                                label = { Text(cat.displayName()) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = EmeraldGreen,
+                                    selectedLabelColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.testTag("filter_chip_${cat.name.lowercase()}")
+                            )
+                        }
+                    }
+                }
+
+                // Section Header
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${selectedCategory.displayName()} Applications (${applications.size})",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = EmeraldGreen
                         )
+                    }
+                }
+
+                // Cards List or Empty View
+                if (applications.isEmpty()) {
+                    item {
+                        EmptyApplicationsView(
+                            category = selectedCategory,
+                            query = searchQuery,
+                            onAddApplication = onAddApplication
+                        )
+                    }
+                } else {
+                    items(applications, key = { it.id.toString() + it.orgName + it.postName }) { app ->
+                        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                            JobApplicationCard(
+                                application = app,
+                                onEdit = { onEditApplication(app) },
+                                onDelete = { onDeleteApplication(app) },
+                                onClearFiles = { onClearDriveFiles(app) }
+                            )
+                        }
                     }
                 }
             }
