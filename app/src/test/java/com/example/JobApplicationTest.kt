@@ -5,29 +5,49 @@ import com.example.data.model.JobApplication
 import com.example.data.model.StageInfo
 import com.example.data.model.StageStatus
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class JobApplicationTest {
 
     @Test
     fun testStageInfoParsing() {
-        val passedStage = StageInfo.fromSheetString("✅ 2024-05-18 (Very Good)")
+        val passedStage = StageInfo.fromSheetString("✅ 2024-05-18 (Very Good) [Marks: 75/100 (75.0%)]")
         assertEquals(StageStatus.PASSED, passedStage.status)
         assertEquals("2024-05-18", passedStage.date)
         assertEquals("Very Good", passedStage.rating)
+        assertEquals("75", passedStage.obtainedMarks)
+        assertEquals("100", passedStage.totalMarks)
+        assertEquals(75.0, passedStage.percentage ?: 0.0, 0.01)
 
-        val failedStage = StageInfo.fromSheetString("❌ Failed")
+        val failedStage = StageInfo.fromSheetString("❌ Failed [Marks: 35/100 (35.0%)]")
         assertEquals(StageStatus.FAILED, failedStage.status)
+        assertEquals("35", failedStage.obtainedMarks)
 
         val pendingStage = StageInfo.fromSheetString("⏳ No")
         assertEquals(StageStatus.NO, pendingStage.status)
     }
 
     @Test
+    fun testPercentageCalculation() {
+        val stage = StageInfo(
+            status = StageStatus.PASSED,
+            obtainedMarks = "80",
+            totalMarks = "100"
+        )
+        assertEquals(80.0, stage.percentage ?: 0.0, 0.01)
+        assertEquals("80.0%", stage.formattedPercentage)
+    }
+
+    @Test
     fun testStageInfoSerialization() {
-        val stage = StageInfo(StageStatus.PASSED, "2024-06-01", "Good")
-        assertEquals("✅ 2024-06-01 (Good)", stage.toSheetString())
+        val stage = StageInfo(
+            status = StageStatus.PASSED,
+            date = "2024-06-01",
+            rating = "খুব ভালো",
+            obtainedMarks = "80",
+            totalMarks = "100"
+        )
+        assertEquals("✅ 2024-06-01 (খুব ভালো) [Marks: 80/100 (80.0%)]", stage.toSheetString())
 
         val failed = StageInfo(StageStatus.FAILED)
         assertEquals("❌ Failed", failed.toSheetString())

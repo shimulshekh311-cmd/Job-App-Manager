@@ -259,9 +259,9 @@ fun StageCounterCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                StatusPill(label = "$passed Pass", color = EmeraldGreen)
-                StatusPill(label = "$failed Fail", color = StatusFailed)
-                StatusPill(label = "$pending Wait", color = StatusPending)
+                StatusPill(label = "$passed Passed", color = EmeraldGreen)
+                StatusPill(label = "$failed Failed", color = StatusFailed)
+                StatusPill(label = "$pending Pending", color = StatusPending)
             }
 
             Spacer(modifier = Modifier.height(8.dp))

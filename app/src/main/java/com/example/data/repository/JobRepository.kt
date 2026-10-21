@@ -38,7 +38,7 @@ class JobRepository(
         var totF = 0; var totC = 0; var totA = list.size; var totE = 0
 
         for (app in list) {
-            if (app.isCanceled) {
+            if (app.category == ExamCategory.CANCELED) {
                 totC++
             } else {
                 totE++
@@ -46,25 +46,53 @@ class JobRepository(
                     totF++
                 }
 
-                when (app.mcq.status) {
-                    StageStatus.PASSED -> mP++
-                    StageStatus.FAILED -> mF++
-                    StageStatus.NO -> mPen++
+                // MCQ stats: Passed, Failed, Pending (from Upcoming exams)
+                if (app.mcq.status == StageStatus.PASSED) {
+                    mP++
+                } else if (app.mcq.status == StageStatus.FAILED) {
+                    mF++
                 }
-                when (app.written.status) {
-                    StageStatus.PASSED -> wP++
-                    StageStatus.FAILED -> wF++
-                    StageStatus.NO -> wPen++
+                if (app.category == ExamCategory.UPCOMING) {
+                    mPen++
                 }
-                when (app.typing.status) {
-                    StageStatus.PASSED -> tP++
-                    StageStatus.FAILED -> tF++
-                    StageStatus.NO -> tPen++
+
+                // Written stats: Passed, Failed, Pending (MCQ passed, awaiting Written)
+                if (app.written.status == StageStatus.PASSED) {
+                    wP++
+                } else if (app.written.status == StageStatus.FAILED) {
+                    wF++
                 }
-                when (app.viva.status) {
-                    StageStatus.PASSED -> vP++
-                    StageStatus.FAILED -> vF++
-                    StageStatus.NO -> vPen++
+                if (app.mcq.status == StageStatus.PASSED &&
+                    app.written.status != StageStatus.PASSED &&
+                    app.written.status != StageStatus.FAILED
+                ) {
+                    wPen++
+                }
+
+                // Typing stats: Passed, Failed, Pending (Written passed, awaiting Typing)
+                if (app.typing.status == StageStatus.PASSED) {
+                    tP++
+                } else if (app.typing.status == StageStatus.FAILED) {
+                    tF++
+                }
+                if (app.written.status == StageStatus.PASSED &&
+                    app.typing.status != StageStatus.PASSED &&
+                    app.typing.status != StageStatus.FAILED
+                ) {
+                    tPen++
+                }
+
+                // Viva stats: Passed, Failed, Pending (Typing passed, awaiting Viva)
+                if (app.viva.status == StageStatus.PASSED) {
+                    vP++
+                } else if (app.viva.status == StageStatus.FAILED) {
+                    vF++
+                }
+                if (app.typing.status == StageStatus.PASSED &&
+                    app.viva.status != StageStatus.PASSED &&
+                    app.viva.status != StageStatus.FAILED
+                ) {
+                    vPen++
                 }
             }
         }

@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -337,7 +338,28 @@ private fun StageChip(
     val (bgColor, textColor, icon) = when (stage.status) {
         StageStatus.PASSED -> Triple(EmeraldGreen.copy(alpha = 0.12f), EmeraldGreen, Icons.Default.CheckCircle)
         StageStatus.FAILED -> Triple(StatusFailed.copy(alpha = 0.12f), StatusFailed, Icons.Default.Error)
+        StageStatus.APPEARED_PENDING_RESULT -> Triple(StatusPending.copy(alpha = 0.15f), StatusPending, Icons.Default.HourglassEmpty)
+        StageStatus.CANCELED -> Triple(Color(0xFFE2E3E5), Color(0xFF6C757D), Icons.Default.Cancel)
         StageStatus.NO -> Triple(Color(0xFFE9ECEF), Color(0xFF6C757D), Icons.Default.HourglassEmpty)
+    }
+
+    val marksPart = if (stage.obtainedMarks.isNotBlank() && stage.totalMarks.isNotBlank()) {
+        " • ${stage.obtainedMarks}/${stage.totalMarks} (${stage.formattedPercentage})"
+    } else ""
+
+    val detail = when (stage.status) {
+        StageStatus.PASSED -> {
+            val r = if (stage.rating.isNotBlank()) " (${stage.rating})" else ""
+            val d = if (stage.date.isNotBlank()) " [${stage.date}]" else ""
+            "$label: ✅ $r$marksPart$d"
+        }
+        StageStatus.FAILED -> "$label: ❌ ফেল$marksPart"
+        StageStatus.APPEARED_PENDING_RESULT -> {
+            val r = if (stage.rating.isNotBlank()) " (${stage.rating})" else ""
+            "$label: ⏳ অপেক্ষমাণ$r$marksPart"
+        }
+        StageStatus.CANCELED -> "$label: ⚠️ বাতিল"
+        StageStatus.NO -> "$label: ⏳ বাকি"
     }
 
     Surface(
@@ -346,7 +368,7 @@ private fun StageChip(
         border = BorderStroke(1.dp, textColor.copy(alpha = 0.3f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
@@ -356,15 +378,6 @@ private fun StageChip(
                 modifier = Modifier.size(14.dp)
             )
             Spacer(modifier = Modifier.width(4.dp))
-            val detail = when (stage.status) {
-                StageStatus.PASSED -> {
-                    val datePart = if (stage.date.isNotBlank()) " ${stage.date}" else ""
-                    val ratingPart = if (stage.rating.isNotBlank()) " (${stage.rating})" else ""
-                    "$label:$datePart$ratingPart"
-                }
-                StageStatus.FAILED -> "$label: Failed"
-                StageStatus.NO -> "$label: Pending"
-            }
             Text(
                 text = detail,
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
