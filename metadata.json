@@ -1,0 +1,8 @@
+{
+  "name": "Job App Manager",
+  "description": "Native Android app for managing job applications, exam progress (MCQ, Written, Typing, Viva), admit cards, and Google Sheets/Drive sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
