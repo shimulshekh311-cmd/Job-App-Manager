@@ -81,11 +81,8 @@ class JobAppViewModel(application: Application) : AndroidViewModel(application) 
 
             matchesCategory && matchesQuery
         }.sortedWith(
-            compareBy(
-                { it.applyDate.trim().ifBlank { "9999-99-99" } },
-                { it.orgName },
-                { it.postName }
-            )
+            compareByDescending<JobApplication>({ it.applyDate.trim() })
+                .thenByDescending { it.id }
         )
     }.stateIn(
         scope = viewModelScope,
