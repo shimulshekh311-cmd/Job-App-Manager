@@ -80,7 +80,13 @@ class JobAppViewModel(application: Application) : AndroidViewModel(application) 
                     app.userId.contains(query, ignoreCase = true)
 
             matchesCategory && matchesQuery
-        }
+        }.sortedWith(
+            compareBy(
+                { it.applyDate.trim().ifBlank { "9999-99-99" } },
+                { it.orgName },
+                { it.postName }
+            )
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

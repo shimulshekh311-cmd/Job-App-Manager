@@ -89,4 +89,26 @@ class JobApplicationTest {
         val upcoming = JobApplication()
         assertEquals(ExamCategory.UPCOMING, upcoming.category)
     }
+
+    @Test
+    fun testDateAscendingSorting() {
+        val app1 = JobApplication(applyDate = "2024-08-01", orgName = "App 1")
+        val app2 = JobApplication(applyDate = "2023-11-15", orgName = "App 2")
+        val app3 = JobApplication(applyDate = "2024-04-12", orgName = "App 3")
+        val app4 = JobApplication(applyDate = "2024-01-10", orgName = "App 4")
+
+        val list = listOf(app1, app2, app3, app4)
+        val sorted = list.sortedWith(
+            compareBy(
+                { it.applyDate.trim().ifBlank { "9999-99-99" } },
+                { it.orgName },
+                { it.postName }
+            )
+        )
+
+        assertEquals("2023-11-15", sorted[0].applyDate)
+        assertEquals("2024-01-10", sorted[1].applyDate)
+        assertEquals("2024-04-12", sorted[2].applyDate)
+        assertEquals("2024-08-01", sorted[3].applyDate)
+    }
 }

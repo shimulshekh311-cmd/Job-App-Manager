@@ -70,11 +70,22 @@ fun FiveTablesSection(
     onClearFiles: (JobApplication) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val dateAscendingComparator = compareBy<JobApplication>(
+        { it.applyDate.trim().ifBlank { "9999-99-99" } },
+        { it.orgName },
+        { it.postName }
+    )
+
     val upcoming = allApplications.filter { it.category == ExamCategory.UPCOMING }
+        .sortedWith(dateAscendingComparator)
     val running = allApplications.filter { it.category == ExamCategory.RUNNING }
+        .sortedWith(dateAscendingComparator)
     val completed = allApplications.filter { it.category == ExamCategory.COMPLETED }
+        .sortedWith(dateAscendingComparator)
     val failed = allApplications.filter { it.category == ExamCategory.FAILED }
+        .sortedWith(dateAscendingComparator)
     val canceled = allApplications.filter { it.category == ExamCategory.CANCELED }
+        .sortedWith(dateAscendingComparator)
 
     Column(
         modifier = modifier
