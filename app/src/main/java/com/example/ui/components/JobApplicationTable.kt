@@ -70,22 +70,21 @@ fun FiveTablesSection(
     onClearFiles: (JobApplication) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val dateAscendingComparator = compareBy<JobApplication>(
-        { it.applyDate.trim().ifBlank { "9999-99-99" } },
-        { it.orgName },
-        { it.postName }
-    )
+    // Newest dates at the top (Descending), older dates at the bottom
+    val dateDescendingComparator = compareByDescending<JobApplication>(
+        { it.applyDate.trim() }
+    ).thenByDescending { it.id }
 
     val upcoming = allApplications.filter { it.category == ExamCategory.UPCOMING }
-        .sortedWith(dateAscendingComparator)
+        .sortedWith(dateDescendingComparator)
     val running = allApplications.filter { it.category == ExamCategory.RUNNING }
-        .sortedWith(dateAscendingComparator)
+        .sortedWith(dateDescendingComparator)
     val completed = allApplications.filter { it.category == ExamCategory.COMPLETED }
-        .sortedWith(dateAscendingComparator)
+        .sortedWith(dateDescendingComparator)
     val failed = allApplications.filter { it.category == ExamCategory.FAILED }
-        .sortedWith(dateAscendingComparator)
+        .sortedWith(dateDescendingComparator)
     val canceled = allApplications.filter { it.category == ExamCategory.CANCELED }
-        .sortedWith(dateAscendingComparator)
+        .sortedWith(dateDescendingComparator)
 
     Column(
         modifier = modifier
@@ -246,26 +245,25 @@ fun CategoryTableBlock(
     }
 }
 
-// Fixed Column Widths for alignment
-private val COL_ACTION_WIDTH = 130.dp
-private val COL_DATE_WIDTH = 120.dp
-private val COL_DAY_WIDTH = 100.dp
-private val COL_ORG_WIDTH = 180.dp
-private val COL_POST_WIDTH = 180.dp
-private val COL_USERID_WIDTH = 130.dp
-private val COL_PASSWORD_WIDTH = 130.dp
-private val COL_PDF_WIDTH = 120.dp
-private val COL_STAGE_WIDTH = 220.dp
+// Compact, content-fit column widths
+private val COL_DATE_WIDTH = 105.dp
+private val COL_DAY_WIDTH = 80.dp
+private val COL_ORG_WIDTH = 140.dp
+private val COL_POST_WIDTH = 140.dp
+private val COL_USERID_WIDTH = 105.dp
+private val COL_PASSWORD_WIDTH = 105.dp
+private val COL_PDF_WIDTH = 75.dp
+private val COL_STAGE_WIDTH = 165.dp
+private val COL_ACTION_WIDTH = 110.dp
 
 @Composable
 private fun TableHeaderRow() {
     Row(
         modifier = Modifier
             .background(EmeraldGreen)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
+            .padding(vertical = 12.dp, horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        HeaderCell("অ্যাকশন (Actions)", COL_ACTION_WIDTH)
         HeaderCell("আবেদনের তারিখ", COL_DATE_WIDTH)
         HeaderCell("বার (Day)", COL_DAY_WIDTH)
         HeaderCell("প্রতিষ্ঠানের নাম", COL_ORG_WIDTH)
@@ -274,10 +272,11 @@ private fun TableHeaderRow() {
         HeaderCell("পাসওয়ার্ড", COL_PASSWORD_WIDTH)
         HeaderCell("আবেদন PDF", COL_PDF_WIDTH)
         HeaderCell("অ্যাডমিট PDF", COL_PDF_WIDTH)
-        HeaderCell("MCQ (তারিখ, নম্বর, রেজাল্ট)", COL_STAGE_WIDTH)
-        HeaderCell("Written (তারিখ, নম্বর, রেজাল্ট)", COL_STAGE_WIDTH)
-        HeaderCell("Typing (তারিখ, নম্বর, রেজাল্ট)", COL_STAGE_WIDTH)
-        HeaderCell("Viva (তারিখ, নম্বর, রেজাল্ট)", COL_STAGE_WIDTH)
+        HeaderCell("MCQ ধাপ", COL_STAGE_WIDTH)
+        HeaderCell("Written ধাপ", COL_STAGE_WIDTH)
+        HeaderCell("Typing ধাপ", COL_STAGE_WIDTH)
+        HeaderCell("Viva ধাপ", COL_STAGE_WIDTH)
+        HeaderCell("অ্যাকশন (Actions)", COL_ACTION_WIDTH)
     }
 }
 
@@ -286,14 +285,14 @@ private fun HeaderCell(title: String, width: Dp) {
     Box(
         modifier = Modifier
             .width(width)
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontWeight = FontWeight.Bold,
-                fontSize = 13.sp
+                fontSize = 12.sp
             ),
             color = Color.White
         )
@@ -314,10 +313,75 @@ private fun TableRowItem(
     Row(
         modifier = Modifier
             .background(rowBg)
-            .padding(vertical = 10.dp, horizontal = 8.dp),
+            .padding(vertical = 10.dp, horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Action Icons Column (Edit, Delete, Clear Drive Files)
+        // 1. Apply Date
+        TextCell(text = application.applyDate.ifBlank { "—" }, width = COL_DATE_WIDTH)
+
+        // 2. Day
+        TextCell(text = application.day.ifBlank { "—" }, width = COL_DAY_WIDTH)
+
+        // 3. Org Name
+        TextCell(
+            text = application.orgName,
+            width = COL_ORG_WIDTH,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        // 4. Post Name
+        TextCell(
+            text = application.postName,
+            width = COL_POST_WIDTH,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        // 5. User ID with copy button
+        CopyableTextCell(
+            text = application.userId,
+            width = COL_USERID_WIDTH,
+            label = "User ID",
+            context = context
+        )
+
+        // 6. Password with copy button
+        CopyableTextCell(
+            text = application.password,
+            width = COL_PASSWORD_WIDTH,
+            label = "Password",
+            context = context
+        )
+
+        // 7. App PDF Cell (Direct Open)
+        PdfCell(
+            url = application.appPdfUrl,
+            localUri = application.localAppPdfUri,
+            width = COL_PDF_WIDTH,
+            context = context
+        )
+
+        // 8. Admit PDF Cell (Direct Open)
+        PdfCell(
+            url = application.admitPdfUrl,
+            localUri = application.localAdmitPdfUri,
+            width = COL_PDF_WIDTH,
+            context = context
+        )
+
+        // 9. MCQ Stage Cell
+        StageTableCell(stage = application.mcq, width = COL_STAGE_WIDTH)
+
+        // 10. Written Stage Cell
+        StageTableCell(stage = application.written, width = COL_STAGE_WIDTH)
+
+        // 11. Typing Stage Cell
+        StageTableCell(stage = application.typing, width = COL_STAGE_WIDTH)
+
+        // 12. Viva Stage Cell
+        StageTableCell(stage = application.viva, width = COL_STAGE_WIDTH)
+
+        // 13. Action Icons Column (at the end)
         Box(
             modifier = Modifier
                 .width(COL_ACTION_WIDTH)
@@ -378,71 +442,6 @@ private fun TableRowItem(
                 }
             }
         }
-
-        // Apply Date
-        TextCell(text = application.applyDate.ifBlank { "—" }, width = COL_DATE_WIDTH)
-
-        // Day
-        TextCell(text = application.day.ifBlank { "—" }, width = COL_DAY_WIDTH)
-
-        // Org Name
-        TextCell(
-            text = application.orgName,
-            width = COL_ORG_WIDTH,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        // Post Name
-        TextCell(
-            text = application.postName,
-            width = COL_POST_WIDTH,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        // User ID with copy button
-        CopyableTextCell(
-            text = application.userId,
-            width = COL_USERID_WIDTH,
-            label = "User ID",
-            context = context
-        )
-
-        // Password with copy button
-        CopyableTextCell(
-            text = application.password,
-            width = COL_PASSWORD_WIDTH,
-            label = "Password",
-            context = context
-        )
-
-        // App PDF Cell
-        PdfCell(
-            url = application.appPdfUrl,
-            localUri = application.localAppPdfUri,
-            width = COL_PDF_WIDTH,
-            context = context
-        )
-
-        // Admit PDF Cell
-        PdfCell(
-            url = application.admitPdfUrl,
-            localUri = application.localAdmitPdfUri,
-            width = COL_PDF_WIDTH,
-            context = context
-        )
-
-        // MCQ Stage Cell
-        StageTableCell(stage = application.mcq, width = COL_STAGE_WIDTH)
-
-        // Written Stage Cell
-        StageTableCell(stage = application.written, width = COL_STAGE_WIDTH)
-
-        // Typing Stage Cell
-        StageTableCell(stage = application.typing, width = COL_STAGE_WIDTH)
-
-        // Viva Stage Cell
-        StageTableCell(stage = application.viva, width = COL_STAGE_WIDTH)
     }
 }
 
@@ -456,7 +455,7 @@ private fun TextCell(
     Box(
         modifier = Modifier
             .width(width)
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Text(
@@ -477,7 +476,7 @@ private fun CopyableTextCell(
     Box(
         modifier = Modifier
             .width(width)
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         if (text.isNotBlank()) {
@@ -488,20 +487,20 @@ private fun CopyableTextCell(
                     maxLines = 1,
                     modifier = Modifier.weight(1f, fill = false)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(2.dp))
                 IconButton(
                     onClick = {
                         val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         cb.setPrimaryClip(ClipData.newPlainText(label, text))
                         Toast.makeText(context, "$label কপি হয়েছে", Toast.LENGTH_SHORT).show()
                     },
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(20.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.ContentCopy,
                         contentDescription = "Copy $label",
                         tint = ActionBlue,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                 }
             }
@@ -521,83 +520,34 @@ private fun PdfCell(
     Box(
         modifier = Modifier
             .width(width)
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         val hasUrl = url.isNotBlank() && url.startsWith("http")
         val hasLocal = localUri.isNotBlank()
 
-        if (hasUrl) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                // View
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .border(1.dp, ActionBlue, RoundedCornerShape(4.dp))
-                        .clickable {
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "URL খোলা যাচ্ছে না", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                        .padding(horizontal = 6.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = "View",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = ActionBlue
-                        )
-                    )
-                }
-
-                // Download (DL)
-                val match = Regex("""[-\w]{25,}""").find(url)
-                val fileId = match?.value ?: ""
-                val dlUrl = if (fileId.isNotBlank()) "https://docs.google.com/uc?export=download&id=$fileId" else url
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(EmeraldGreen)
-                        .clickable {
-                            try {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(dlUrl)))
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "ডাউনলোড লিংক খোলা যাচ্ছে না", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                        .padding(horizontal = 6.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = "DL",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    )
-                }
-            }
-        } else if (hasLocal) {
+        if (hasUrl || hasLocal) {
+            val target = if (hasUrl) url else localUri
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .background(ActionBlue)
+                    .background(ActionBlue.copy(alpha = 0.12f))
+                    .border(1.dp, ActionBlue, RoundedCornerShape(4.dp))
                     .clickable {
                         try {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(localUri)))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(target))
+                            context.startActivity(intent)
                         } catch (e: Exception) {
-                            Toast.makeText(context, "ফাইল খোলা যাচ্ছে না", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "PDF খোলা যাচ্ছে না", Toast.LENGTH_SHORT).show()
                         }
                     }
-                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                    .padding(horizontal = 7.dp, vertical = 3.dp)
             ) {
                 Text(
                     text = "Open",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = ActionBlue
                     )
                 )
             }
@@ -615,7 +565,7 @@ private fun StageTableCell(
     Box(
         modifier = Modifier
             .width(width)
-            .padding(horizontal = 6.dp),
+            .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         if (stage.isCanceled || stage.status == StageStatus.CANCELED) {
@@ -624,10 +574,10 @@ private fun StageTableCell(
                 shape = RoundedCornerShape(6.dp)
             ) {
                 Text(
-                    text = "⚠️ বাতিল (Canceled)",
+                    text = "⚠️ বাতিল",
                     style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                     color = Color(0xFF6C757D),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                 )
             }
         } else if (stage.status == StageStatus.NO) {
@@ -643,13 +593,14 @@ private fun StageTableCell(
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 // Status & Rating
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, null, tint = tint, modifier = Modifier.size(13.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(icon, null, tint = tint, modifier = Modifier.size(12.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "$statusText (${stage.rating.ifBlank { "ভালো" }})",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            color = tint
+                            color = tint,
+                            fontSize = 11.sp
                         )
                     )
                 }
@@ -658,7 +609,7 @@ private fun StageTableCell(
                 if (stage.date.isNotBlank()) {
                     Text(
                         text = "📅 ${stage.date}",
-                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -670,10 +621,10 @@ private fun StageTableCell(
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Text(
-                            text = "নম্বর: ${stage.obtainedMarks}/${stage.totalMarks} (${stage.formattedPercentage})",
+                            text = "${stage.obtainedMarks}/${stage.totalMarks} (${stage.formattedPercentage})",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 11.sp,
+                                fontSize = 10.sp,
                                 color = tint
                             ),
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)

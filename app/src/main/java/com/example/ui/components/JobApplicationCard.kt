@@ -574,55 +574,21 @@ private fun FileActionPill(
                 )
             }
 
-            if (hasUrl) {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // View link
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .border(1.dp, ActionBlue, RoundedCornerShape(4.dp))
-                            .clickable { onOpen(url) }
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "View",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = ActionBlue
-                            )
-                        )
-                    }
-
-                    // Download link
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(EmeraldGreen)
-                            .clickable { onDownload(url) }
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "DL",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        )
-                    }
-                }
-            } else if (hasLocal) {
+            val target = if (hasUrl) url else localUri
+            if (hasUrl || hasLocal) {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(ActionBlue)
-                        .clickable { onOpen(localUri) }
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .background(ActionBlue.copy(alpha = 0.12f))
+                        .border(1.dp, ActionBlue, RoundedCornerShape(4.dp))
+                        .clickable { onOpen(target) }
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = "Open",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = ActionBlue
                         )
                     )
                 }
