@@ -8,7 +8,10 @@ import com.example.data.local.AppDatabase
 import com.example.data.model.DashboardStats
 import com.example.data.model.ExamCategory
 import com.example.data.model.JobApplication
+import com.example.data.remote.GitHubReleaseInfo
+import com.example.data.remote.GitHubUpdateManager
 import com.example.data.remote.GoogleAppsScriptClient
+import com.example.data.remote.UpdateDownloadProgress
 import com.example.data.repository.JobRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 sealed interface SyncUiState {
     object Idle : SyncUiState
@@ -24,11 +28,20 @@ sealed interface SyncUiState {
     data class Error(val message: String) : SyncUiState
 }
 
+sealed interface GitHubUpdateUiState {
+    object Idle : GitHubUpdateUiState
+    object Checking : GitHubUpdateUiState
+    data class UpToDate(val latestTag: String) : GitHubUpdateUiState
+    data class Available(val release: GitHubReleaseInfo) : GitHubUpdateUiState
+    data class Error(val message: String) : GitHubUpdateUiState
+}
+
 class JobAppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val database = AppDatabase.getDatabase(application, viewModelScope)
     private val remoteClient = GoogleAppsScriptClient(application)
     val repository = JobRepository(application, database.jobDao(), remoteClient)
+    val updateManager = GitHubUpdateManager(application)
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
@@ -50,6 +63,16 @@ class JobAppViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _showScriptHelperDialog = MutableStateFlow(false)
     val showScriptHelperDialog: StateFlow<Boolean> = _showScriptHelperDialog
+
+    // GitHub In-App Update States
+    private val _showUpdateDialog = MutableStateFlow(false)
+    val showUpdateDialog: StateFlow<Boolean> = _showUpdateDialog
+
+    private val _updateState = MutableStateFlow<GitHubUpdateUiState>(GitHubUpdateUiState.Idle)
+    val updateState: StateFlow<GitHubUpdateUiState> = _updateState
+
+    private val _downloadProgress = MutableStateFlow<UpdateDownloadProgress>(UpdateDownloadProgress.Idle)
+    val downloadProgress: StateFlow<UpdateDownloadProgress> = _downloadProgress
 
     private val _isFormOpen = MutableStateFlow(false)
     val isFormOpen: StateFlow<Boolean> = _isFormOpen
@@ -195,4 +218,64 @@ class JobAppViewModel(application: Application) : AndroidViewModel(application) 
 
     fun getWebAppUrl(): String = remoteClient.webAppUrl
     fun isWebConfigured(): Boolean = remoteClient.isConfigured()
+
+    // --- GitHub In-App Updater Operations ---
+
+    fun openUpdateDialog() {
+        _showUpdateDialog.value = true
+        // Auto check for update when opening dialog if currently idle
+        if (_updateState.value is GitHubUpdateUiState.Idle) {
+            checkForGitHubUpdates()
+        }
+    }
+
+    fun closeUpdateDialog() {
+        _showUpdateDialog.value = false
+    }
+
+    fun getGitHubRepo(): String = updateManager.githubRepo
+
+    fun updateGitHubRepo(repo: String) {
+        updateManager.githubRepo = repo
+    }
+
+    fun getCurrentAppVersion(): String = updateManager.getCurrentVersionName()
+
+    fun checkForGitHubUpdates() {
+        viewModelScope.launch {
+            _updateState.value = GitHubUpdateUiState.Checking
+            _downloadProgress.value = UpdateDownloadProgress.Idle
+            val result = updateManager.checkLatestRelease()
+            result.onSuccess { release ->
+                if (release.isNewer) {
+                    _updateState.value = GitHubUpdateUiState.Available(release)
+                } else {
+                    _updateState.value = GitHubUpdateUiState.UpToDate(release.tagName)
+                }
+            }.onFailure { ex ->
+                _updateState.value = GitHubUpdateUiState.Error(ex.localizedMessage ?: "আপডেট তথ্য লোড করতে ব্যর্থ হয়েছে")
+            }
+        }
+    }
+
+    fun startDownloadUpdate(release: GitHubReleaseInfo) {
+        val url = release.apkDownloadUrl ?: return
+        viewModelScope.launch {
+            updateManager.downloadApk(
+                apkUrl = url,
+                fileName = release.apkName ?: "update-${release.tagName}.apk",
+                onProgress = { progress ->
+                    _downloadProgress.value = progress
+                    if (progress is UpdateDownloadProgress.Completed) {
+                        // Automatically prompt installation
+                        installDownloadedApk(progress.file)
+                    }
+                }
+            )
+        }
+    }
+
+    fun installDownloadedApk(file: File) {
+        updateManager.installApk(file)
+    }
 }

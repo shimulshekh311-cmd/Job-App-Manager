@@ -17,6 +17,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.JobAppViewModel
 import com.example.ui.components.CodeHelperDialog
 import com.example.ui.components.DeleteConfirmationDialog
+import com.example.ui.components.GitHubUpdateDialog
 import com.example.ui.components.GoogleSyncDialog
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.JobFormScreen
@@ -49,6 +50,9 @@ fun JobAppManagerRoot(
     val deletingApp by viewModel.deletingApplication.collectAsStateWithLifecycle()
     val showSettingsDialog by viewModel.showSettingsDialog.collectAsStateWithLifecycle()
     val showScriptHelperDialog by viewModel.showScriptHelperDialog.collectAsStateWithLifecycle()
+    val showUpdateDialog by viewModel.showUpdateDialog.collectAsStateWithLifecycle()
+    val updateState by viewModel.updateState.collectAsStateWithLifecycle()
+    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
 
     AnimatedContent(
         targetState = isFormOpen,
@@ -83,6 +87,7 @@ fun JobAppManagerRoot(
                 onClearDriveFiles = { viewModel.clearDriveFiles(it) },
                 onOpenSyncSettings = { viewModel.openSettingsDialog() },
                 onOpenCodeHelper = { viewModel.openScriptHelperDialog() },
+                onOpenUpdater = { viewModel.openUpdateDialog() },
                 onDismissSyncStatus = { viewModel.clearSyncStatus() }
             )
         }
@@ -116,6 +121,21 @@ fun JobAppManagerRoot(
     if (showScriptHelperDialog) {
         CodeHelperDialog(
             onDismiss = { viewModel.closeScriptHelperDialog() }
+        )
+    }
+
+    // GitHub In-App Auto-Update Dialog
+    if (showUpdateDialog) {
+        GitHubUpdateDialog(
+            currentVersion = viewModel.getCurrentAppVersion(),
+            currentRepo = viewModel.getGitHubRepo(),
+            updateState = updateState,
+            downloadProgress = downloadProgress,
+            onSaveRepo = { viewModel.updateGitHubRepo(it) },
+            onCheckUpdate = { viewModel.checkForGitHubUpdates() },
+            onStartDownload = { viewModel.startDownloadUpdate(it) },
+            onInstallApk = { viewModel.installDownloadedApk(it) },
+            onDismiss = { viewModel.closeUpdateDialog() }
         )
     }
 }

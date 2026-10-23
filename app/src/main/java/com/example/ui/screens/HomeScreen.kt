@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.HourglassEmpty
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material3.Badge
@@ -102,6 +103,7 @@ fun HomeScreen(
     onClearDriveFiles: (JobApplication) -> Unit,
     onOpenSyncSettings: () -> Unit,
     onOpenCodeHelper: () -> Unit,
+    onOpenUpdater: () -> Unit,
     onDismissSyncStatus: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -162,6 +164,18 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    // In-App Update from GitHub
+                    IconButton(
+                        onClick = onOpenUpdater,
+                        modifier = Modifier.testTag("action_github_update")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SystemUpdate,
+                            contentDescription = "GitHub Update",
+                            tint = Color.White
+                        )
+                    }
+
                     // Google Apps Script Code Helper button
                     IconButton(
                         onClick = onOpenCodeHelper,
