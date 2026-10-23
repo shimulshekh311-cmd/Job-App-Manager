@@ -76,7 +76,7 @@ fun GitHubUpdateDialog(
     onInstallApk: (File) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var repoText by remember { mutableStateOf(currentRepo) }
+    var repoText by remember(currentRepo) { mutableStateOf(currentRepo) }
     var isEditingRepo by remember { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
 
@@ -143,7 +143,12 @@ fun GitHubUpdateDialog(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             TextButton(
-                                onClick = { isEditingRepo = !isEditingRepo },
+                                onClick = {
+                                    if (isEditingRepo) {
+                                        onSaveRepo(repoText)
+                                    }
+                                    isEditingRepo = !isEditingRepo
+                                },
                                 modifier = Modifier.height(28.dp)
                             ) {
                                 Icon(Icons.Default.Edit, null, modifier = Modifier.size(14.dp))
@@ -161,7 +166,7 @@ fun GitHubUpdateDialog(
                                     onSaveRepo(it)
                                 },
                                 label = { Text("username/repository") },
-                                placeholder = { Text("shimulshekh311/job-app-manager") },
+                                placeholder = { Text("shimulshekh311-cmd/Job-App-Manager") },
                                 singleLine = true,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -170,7 +175,7 @@ fun GitHubUpdateDialog(
                             )
                         } else {
                             Text(
-                                text = repoText.ifBlank { "shimulshekh311/job-app-manager" },
+                                text = repoText.ifBlank { "shimulshekh311-cmd/Job-App-Manager" },
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.SemiBold,
@@ -255,13 +260,22 @@ fun GitHubUpdateDialog(
                             }
                         }
                         Spacer(modifier = Modifier.height(10.dp))
-                        TextButton(
-                            onClick = onCheckUpdate,
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("পুনরায় চেক করুন")
+                            TextButton(onClick = onCheckUpdate) {
+                                Icon(Icons.Default.Refresh, null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("পুনরায় চেক করুন")
+                            }
+                            if (updateState.release?.apkDownloadUrl != null) {
+                                TextButton(onClick = { onStartDownload(updateState.release) }) {
+                                    Icon(Icons.Default.CloudDownload, null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("APK রি-ইন্সটল করুন")
+                                }
+                            }
                         }
                     }
 

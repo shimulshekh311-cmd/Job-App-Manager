@@ -47,10 +47,33 @@ class GitHubUpdateManager(private val context: Context) {
         .followSslRedirects(true)
         .build()
 
+    companion object {
+        const val DEFAULT_REPO = "shimulshekh311-cmd/Job-App-Manager"
+
+        fun cleanRepoString(input: String): String {
+            return input.trim()
+                .removePrefix("https://github.com/")
+                .removePrefix("http://github.com/")
+                .removePrefix("github.com/")
+                .removeSuffix(".git")
+                .removeSuffix("/")
+                .trim()
+        }
+    }
+
     // Default or user-configured GitHub repo: "owner/repo"
     var githubRepo: String
-        get() = prefs.getString("github_repo", "shimulshekh311/job-app-manager") ?: "shimulshekh311/job-app-manager"
-        set(value) = prefs.edit().putString("github_repo", value.trim().removePrefix("https://github.com/").removeSuffix("/")).apply()
+        get() {
+            val saved = prefs.getString("github_repo", null)
+            if (saved.isNullOrBlank() || saved.equals("shimulshekh311/job-app-manager", ignoreCase = true)) {
+                return DEFAULT_REPO
+            }
+            return saved
+        }
+        set(value) {
+            val clean = cleanRepoString(value)
+            prefs.edit().putString("github_repo", clean).apply()
+        }
 
     fun getCurrentVersionName(): String = BuildConfig.VERSION_NAME
     fun getCurrentVersionCode(): Int = BuildConfig.VERSION_CODE
@@ -59,77 +82,140 @@ class GitHubUpdateManager(private val context: Context) {
      * Checks GitHub API for the latest release in the repository.
      */
     suspend fun checkLatestRelease(): Result<GitHubReleaseInfo> = withContext(Dispatchers.IO) {
-        val repo = githubRepo.trim()
+        val repo = cleanRepoString(githubRepo)
         if (repo.isBlank() || !repo.contains("/")) {
             return@withContext Result.failure(
-                IllegalArgumentException("অনুগ্রহ করে সঠিক GitHub Repository (যেমন: username/repo) প্রদান করুন।")
+                IllegalArgumentException("অনুগ্রহ করে সঠিক GitHub Repository (যেমন: shimulshekh311-cmd/Job-App-Manager) প্রদান করুন।")
             )
         }
 
         try {
-            val apiUrl = "https://api.github.com/repos/$repo/releases/latest"
-            val request = Request.Builder()
-                .url(apiUrl)
+            var releaseJson: JSONObject? = null
+
+            // 1. First try /releases/latest
+            val latestUrl = "https://api.github.com/repos/$repo/releases/latest"
+            val latestRequest = Request.Builder()
+                .url(latestUrl)
                 .header("Accept", "application/vnd.github.v3+json")
                 .header("User-Agent", "JobAppManager-Android")
                 .get()
                 .build()
 
-            client.newCall(request).execute().use { response ->
-                if (response.code == 404) {
-                    return@withContext Result.failure(
-                        Exception("GitHub Repository ($repo)-এ কোনো Release বা APK খুঁজে পাওয়া যায়নি।")
-                    )
-                }
-                if (!response.isSuccessful) {
-                    return@withContext Result.failure(
-                        Exception("GitHub API Error: ${response.code} ${response.message}")
-                    )
-                }
-
-                val bodyStr = response.body?.string().orEmpty()
-                val json = JSONObject(bodyStr)
-
-                val tagName = json.optString("tag_name", "").trim()
-                val title = json.optString("name", tagName)
-                val body = json.optString("body", "নতুন আপডেট পাওয়া গেছে।")
-                val publishedAt = json.optString("published_at", "")
-                val htmlUrl = json.optString("html_url", "https://github.com/$repo")
-
-                var apkDownloadUrl: String? = null
-                var apkName: String? = null
-                var apkSizeBytes: Long = 0L
-
-                val assets = json.optJSONArray("assets")
-                if (assets != null) {
-                    for (i in 0 until assets.length()) {
-                        val asset = assets.getJSONObject(i)
-                        val name = asset.optString("name", "")
-                        if (name.endsWith(".apk", ignoreCase = true)) {
-                            apkDownloadUrl = asset.optString("browser_download_url")
-                            apkName = name
-                            apkSizeBytes = asset.optLong("size", 0L)
-                            break
+            try {
+                client.newCall(latestRequest).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val bodyStr = response.body?.string().orEmpty()
+                        if (bodyStr.isNotBlank()) {
+                            releaseJson = JSONObject(bodyStr)
                         }
                     }
                 }
-
-                val isNewer = isRemoteVersionNewer(tagName, BuildConfig.VERSION_NAME)
-
-                Result.success(
-                    GitHubReleaseInfo(
-                        tagName = tagName,
-                        title = title.ifBlank { tagName },
-                        changelog = body,
-                        publishedAt = publishedAt,
-                        htmlUrl = htmlUrl,
-                        apkDownloadUrl = apkDownloadUrl,
-                        apkName = apkName,
-                        apkSizeBytes = apkSizeBytes,
-                        isNewer = isNewer
-                    )
-                )
+            } catch (_: Exception) {
+                // Ignore and proceed to fallback
             }
+
+            // 2. If /releases/latest failed or returned null (e.g. pre-releases or automated workflow releases), fetch /releases
+            if (releaseJson == null) {
+                val listUrl = "https://api.github.com/repos/$repo/releases"
+                val listRequest = Request.Builder()
+                    .url(listUrl)
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("User-Agent", "JobAppManager-Android")
+                    .get()
+                    .build()
+
+                client.newCall(listRequest).execute().use { response ->
+                    if (response.code == 404) {
+                        return@withContext Result.failure(
+                            Exception("GitHub Repository ($repo) খুঁজে পাওয়া যায়নি (404 Not Found)।\n\nঅনুগ্রহ করে নিশ্চিত করুন যে:\n১. ইউজারনেম সঠিক (shimulshekh311-cmd)\n২. রিপোজিটরির নাম সঠিক (Job-App-Manager)\n৩. রিপোজিটরিটি Public রয়েছে।")
+                        )
+                    }
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(
+                            Exception("GitHub API ত্রুটি: HTTP ${response.code} ${response.message}")
+                        )
+                    }
+
+                    val bodyStr = response.body?.string().orEmpty()
+                    val array = org.json.JSONArray(bodyStr)
+                    if (array.length() == 0) {
+                        return@withContext Result.failure(
+                            Exception("GitHub Repository ($repo)-এ কোনো Release খুঁজে পাওয়া যায়নি।")
+                        )
+                    }
+
+                    // Look for the first release that has an APK
+                    for (i in 0 until array.length()) {
+                        val candidate = array.getJSONObject(i)
+                        val assets = candidate.optJSONArray("assets")
+                        var hasApk = false
+                        if (assets != null) {
+                            for (j in 0 until assets.length()) {
+                                if (assets.getJSONObject(j).optString("name").endsWith(".apk", ignoreCase = true)) {
+                                    hasApk = true
+                                    break
+                                }
+                            }
+                        }
+                        if (hasApk) {
+                            releaseJson = candidate
+                            break
+                        }
+                    }
+                    if (releaseJson == null) {
+                        releaseJson = array.getJSONObject(0)
+                    }
+                }
+            }
+
+            val json = releaseJson ?: return@withContext Result.failure(
+                Exception("GitHub Repository ($repo)-এ কোনো Release বা APK পাওয়া যায়নি।")
+            )
+
+            val tagName = json.optString("tag_name", "").trim()
+            val title = json.optString("name", tagName)
+            val body = json.optString("body", "নতুন আপডেট পাওয়া গেছে।")
+            val publishedAt = json.optString("published_at", "")
+            val htmlUrl = json.optString("html_url", "https://github.com/$repo")
+
+            var apkDownloadUrl: String? = null
+            var apkName: String? = null
+            var apkSizeBytes: Long = 0L
+
+            val assets = json.optJSONArray("assets")
+            if (assets != null) {
+                for (i in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(i)
+                    val name = asset.optString("name", "")
+                    if (name.endsWith(".apk", ignoreCase = true)) {
+                        apkDownloadUrl = asset.optString("browser_download_url")
+                        apkName = name
+                        apkSizeBytes = asset.optLong("size", 0L)
+                        break
+                    }
+                }
+            }
+
+            val isNewer = isRemoteVersionNewer(
+                remoteTag = tagName,
+                releaseTitle = title,
+                currentVersionName = BuildConfig.VERSION_NAME,
+                currentVersionCode = BuildConfig.VERSION_CODE
+            )
+
+            Result.success(
+                GitHubReleaseInfo(
+                    tagName = tagName,
+                    title = title.ifBlank { tagName },
+                    changelog = body,
+                    publishedAt = publishedAt,
+                    htmlUrl = htmlUrl,
+                    apkDownloadUrl = apkDownloadUrl,
+                    apkName = apkName,
+                    apkSizeBytes = apkSizeBytes,
+                    isNewer = isNewer
+                )
+            )
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -242,28 +328,48 @@ class GitHubUpdateManager(private val context: Context) {
     }
 
     /**
-     * Helper to compare version strings e.g. "v1.2.0" with "1.0".
+     * Helper to compare version strings or build numbers e.g. "Debug APK Build #9" vs versionCode 1.
      */
-    private fun isRemoteVersionNewer(remoteTag: String, currentVersion: String): Boolean {
+    private fun isRemoteVersionNewer(
+        remoteTag: String,
+        releaseTitle: String,
+        currentVersionName: String,
+        currentVersionCode: Int
+    ): Boolean {
         try {
-            val cleanRemote = remoteTag.removePrefix("v").removePrefix("V").trim()
-            val cleanCurrent = currentVersion.removePrefix("v").removePrefix("V").trim()
-
-            if (cleanRemote == cleanCurrent) return false
-
-            val remoteParts = cleanRemote.split(".").mapNotNull { it.toIntOrNull() }
-            val currentParts = cleanCurrent.split(".").mapNotNull { it.toIntOrNull() }
-
-            val maxLen = maxOf(remoteParts.size, currentParts.size)
-            for (i in 0 until maxLen) {
-                val r = remoteParts.getOrElse(i) { 0 }
-                val c = currentParts.getOrElse(i) { 0 }
-                if (r > c) return true
-                if (r < c) return false
+            // 1. Try to extract build number e.g. "debug-apk-build-9-1", "Debug APK Build #9", "build-9"
+            val buildRegex = Regex("""(?:build[-_\s#]*|run[-_\s#]*)(\d+)""", RegexOption.IGNORE_CASE)
+            val tagBuildMatch = buildRegex.find(remoteTag) ?: buildRegex.find(releaseTitle)
+            if (tagBuildMatch != null) {
+                val remoteBuildNum = tagBuildMatch.groupValues[1].toIntOrNull()
+                if (remoteBuildNum != null) {
+                    return remoteBuildNum > currentVersionCode
+                }
             }
-            return cleanRemote > cleanCurrent
+
+            // 2. Try standard semver comparison e.g. "v1.2.0" vs "1.0"
+            val semverRegex = Regex("""(\d+(?:\.\d+)+)""")
+            val remoteSemver = semverRegex.find(remoteTag)?.groupValues?.get(1)
+            val currentSemver = semverRegex.find(currentVersionName)?.groupValues?.get(1)
+
+            if (remoteSemver != null && currentSemver != null) {
+                val rParts = remoteSemver.split(".").mapNotNull { it.toIntOrNull() }
+                val cParts = currentSemver.split(".").mapNotNull { it.toIntOrNull() }
+                val maxLen = maxOf(rParts.size, cParts.size)
+                for (i in 0 until maxLen) {
+                    val r = rParts.getOrElse(i) { 0 }
+                    val c = cParts.getOrElse(i) { 0 }
+                    if (r > c) return true
+                    if (r < c) return false
+                }
+            }
+
+            // 3. Fallback: if tag is not blank and does not equal current version name, treat as newer
+            val cleanRemote = remoteTag.removePrefix("v").removePrefix("V").trim()
+            val cleanCurrent = currentVersionName.removePrefix("v").removePrefix("V").trim()
+            return cleanRemote.isNotBlank() && cleanRemote != cleanCurrent
         } catch (_: Exception) {
-            return remoteTag.isNotBlank() && remoteTag != currentVersion
+            return remoteTag.isNotBlank() && remoteTag != currentVersionName
         }
     }
 }

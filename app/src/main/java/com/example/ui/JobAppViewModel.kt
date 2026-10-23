@@ -31,7 +31,7 @@ sealed interface SyncUiState {
 sealed interface GitHubUpdateUiState {
     object Idle : GitHubUpdateUiState
     object Checking : GitHubUpdateUiState
-    data class UpToDate(val latestTag: String) : GitHubUpdateUiState
+    data class UpToDate(val latestTag: String, val release: GitHubReleaseInfo? = null) : GitHubUpdateUiState
     data class Available(val release: GitHubReleaseInfo) : GitHubUpdateUiState
     data class Error(val message: String) : GitHubUpdateUiState
 }
@@ -250,7 +250,7 @@ class JobAppViewModel(application: Application) : AndroidViewModel(application) 
                 if (release.isNewer) {
                     _updateState.value = GitHubUpdateUiState.Available(release)
                 } else {
-                    _updateState.value = GitHubUpdateUiState.UpToDate(release.tagName)
+                    _updateState.value = GitHubUpdateUiState.UpToDate(release.tagName, release)
                 }
             }.onFailure { ex ->
                 _updateState.value = GitHubUpdateUiState.Error(ex.localizedMessage ?: "আপডেট তথ্য লোড করতে ব্যর্থ হয়েছে")
