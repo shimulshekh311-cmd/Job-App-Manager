@@ -127,10 +127,31 @@ class JobRepository(
         admitPdfUri: Uri? = null
     ): Result<Unit> {
         val todayStr = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+
+        var finalAppPdfUri = app.localAppPdfUri
+        if (appPdfUri != null) {
+            val copied = com.example.util.PdfHelper.copyUriToAppStorage(context, appPdfUri, "app_doc")
+            finalAppPdfUri = if (copied != null) {
+                com.example.util.PdfHelper.getFileProviderUri(context, copied).toString()
+            } else {
+                appPdfUri.toString()
+            }
+        }
+
+        var finalAdmitPdfUri = app.localAdmitPdfUri
+        if (admitPdfUri != null) {
+            val copied = com.example.util.PdfHelper.copyUriToAppStorage(context, admitPdfUri, "admit_card")
+            finalAdmitPdfUri = if (copied != null) {
+                com.example.util.PdfHelper.getFileProviderUri(context, copied).toString()
+            } else {
+                admitPdfUri.toString()
+            }
+        }
+
         val updatedApp = app.copy(
             lastUpdated = todayStr,
-            localAppPdfUri = appPdfUri?.toString() ?: app.localAppPdfUri,
-            localAdmitPdfUri = admitPdfUri?.toString() ?: app.localAdmitPdfUri
+            localAppPdfUri = finalAppPdfUri,
+            localAdmitPdfUri = finalAdmitPdfUri
         )
 
         // Save locally first

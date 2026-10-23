@@ -110,4 +110,21 @@ class JobApplicationTest {
         assertEquals("2024-01-10", sorted[2].applyDate)
         assertEquals("2023-11-15", sorted[3].applyDate)
     }
+
+    @Test
+    fun testPdfAttachmentHandling() {
+        val appWithDrive = JobApplication(
+            appPdfUrl = "https://drive.google.com/file/d/12345/view",
+            admitPdfUrl = "https://drive.google.com/file/d/67890/view"
+        )
+        assertEquals(true, appWithDrive.appPdfUrl.isNotBlank())
+        assertEquals(true, appWithDrive.admitPdfUrl.isNotBlank())
+
+        val appWithLocal = JobApplication(
+            localAppPdfUri = "content://com.example.fileprovider/files/pdfs/app.pdf",
+            localAdmitPdfUri = "content://com.example.fileprovider/files/pdfs/admit.pdf"
+        )
+        assertEquals(true, appWithLocal.localAppPdfUri.isNotBlank())
+        assertEquals(true, appWithLocal.localAdmitPdfUri.isNotBlank())
+    }
 }

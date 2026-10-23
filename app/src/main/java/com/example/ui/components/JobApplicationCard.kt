@@ -77,6 +77,7 @@ import com.example.ui.theme.EmeraldGreen
 import com.example.ui.theme.StatusCanceled
 import com.example.ui.theme.StatusFailed
 import com.example.ui.theme.StatusPending
+import com.example.util.PdfHelper
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -90,6 +91,7 @@ fun JobApplicationCard(
     val context = LocalContext.current
     var isExpanded by remember { mutableStateOf(false) }
     var isPasswordVisible by remember { mutableStateOf(false) }
+    var viewingPdfTarget by remember { mutableStateOf<String?>(null) }
 
     val categoryColor = when (application.category) {
         ExamCategory.COMPLETED -> EmeraldGreen
@@ -235,11 +237,11 @@ fun JobApplicationCard(
                     DocumentsRow(
                         application = application,
                         onOpenUrl = { url ->
-                            openLinkInBrowser(context, url)
+                            viewingPdfTarget = url
                         },
                         onDownloadUrl = { url ->
                             val downloadUrl = getDirectDownloadUrl(url)
-                            openLinkInBrowser(context, downloadUrl)
+                            PdfHelper.openPdfExternally(context, downloadUrl)
                         }
                     )
                 }
@@ -327,6 +329,14 @@ fun JobApplicationCard(
                 }
             }
         }
+    }
+
+    if (viewingPdfTarget != null) {
+        PdfViewerDialog(
+            title = "PDF ডকুমেন্ট (${application.orgName})",
+            targetUriOrUrl = viewingPdfTarget,
+            onDismiss = { viewingPdfTarget = null }
+        )
     }
 }
 
@@ -611,12 +621,7 @@ private fun copyToClipboard(context: Context, text: String, label: String) {
 }
 
 private fun openLinkInBrowser(context: Context, url: String) {
-    try {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        context.startActivity(intent)
-    } catch (e: Exception) {
-        Toast.makeText(context, "Cannot open URL: ${e.message}", Toast.LENGTH_SHORT).show()
-    }
+    PdfHelper.openPdfExternally(context, url)
 }
 
 private fun getDirectDownloadUrl(url: String): String {

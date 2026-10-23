@@ -40,6 +40,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.example.util.PdfHelper
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -517,30 +522,24 @@ private fun PdfCell(
     width: Dp,
     context: Context
 ) {
+    var showViewer by remember { mutableStateOf(false) }
+    val hasUrl = url.isNotBlank() && url.startsWith("http")
+    val hasLocal = localUri.isNotBlank()
+    val target = if (hasUrl) url else localUri
+
     Box(
         modifier = Modifier
             .width(width)
             .padding(horizontal = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        val hasUrl = url.isNotBlank() && url.startsWith("http")
-        val hasLocal = localUri.isNotBlank()
-
         if (hasUrl || hasLocal) {
-            val target = if (hasUrl) url else localUri
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
                     .background(ActionBlue.copy(alpha = 0.12f))
                     .border(1.dp, ActionBlue, RoundedCornerShape(4.dp))
-                    .clickable {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(target))
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "PDF খোলা যাচ্ছে না", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                    .clickable { showViewer = true }
                     .padding(horizontal = 7.dp, vertical = 3.dp)
             ) {
                 Text(
@@ -554,6 +553,14 @@ private fun PdfCell(
         } else {
             Text("—", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
         }
+    }
+
+    if (showViewer && (hasUrl || hasLocal)) {
+        PdfViewerDialog(
+            title = "PDF ডকুমেন্ট",
+            targetUriOrUrl = target,
+            onDismiss = { showViewer = false }
+        )
     }
 }
 

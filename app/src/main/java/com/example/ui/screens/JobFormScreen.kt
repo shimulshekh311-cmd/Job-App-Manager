@@ -38,8 +38,13 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
+import com.example.ui.components.PdfViewerDialog
+import com.example.util.PdfHelper
+import java.io.File
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -111,15 +116,51 @@ fun JobFormScreen(
     var isOverallCanceled by remember { mutableStateOf(editingApp?.isCanceled ?: false) }
 
     // PDFs
-    var appPdfUri by remember { mutableStateOf<Uri?>(null) }
+    var appPdfFile by remember {
+        mutableStateOf(editingApp?.localAppPdfUri?.let { PdfHelper.getFileFromUriString(context, it) })
+    }
+    var appPdfUri by remember {
+        mutableStateOf(editingApp?.localAppPdfUri?.let { if (it.isNotBlank()) Uri.parse(it) else null })
+    }
     var appPdfName by remember {
-        mutableStateOf(if (editingApp?.appPdfUrl?.isNotBlank() == true) "Current Drive App PDF Attached" else "")
+        mutableStateOf(
+            when {
+                editingApp?.localAppPdfUri?.isNotBlank() == true -> {
+                    val f = PdfHelper.getFileFromUriString(context, editingApp.localAppPdfUri)
+                    f?.name ?: "সংরক্ষিত আবেদন PDF (Saved Application)"
+                }
+                editingApp?.appPdfUrl?.isNotBlank() == true -> "Google Drive আবেদন PDF"
+                else -> ""
+            }
+        )
     }
+    var appPdfCleared by remember { mutableStateOf(false) }
 
-    var admitPdfUri by remember { mutableStateOf<Uri?>(null) }
-    var admitPdfName by remember {
-        mutableStateOf(if (editingApp?.admitPdfUrl?.isNotBlank() == true) "Current Drive Admit Card Attached" else "")
+    var admitPdfFile by remember {
+        mutableStateOf(editingApp?.localAdmitPdfUri?.let { PdfHelper.getFileFromUriString(context, it) })
     }
+    var admitPdfUri by remember {
+        mutableStateOf(editingApp?.localAdmitPdfUri?.let { if (it.isNotBlank()) Uri.parse(it) else null })
+    }
+    var admitPdfName by remember {
+        mutableStateOf(
+            when {
+                editingApp?.localAdmitPdfUri?.isNotBlank() == true -> {
+                    val f = PdfHelper.getFileFromUriString(context, editingApp.localAdmitPdfUri)
+                    f?.name ?: "সংরক্ষিত অ্যাডমিট কার্ড PDF (Saved Admit Card)"
+                }
+                editingApp?.admitPdfUrl?.isNotBlank() == true -> "Google Drive অ্যাডমিট কার্ড"
+                else -> ""
+            }
+        )
+    }
+    var admitPdfCleared by remember { mutableStateOf(false) }
+
+    // PDF Viewer Dialog State
+    var showPdfViewer by remember { mutableStateOf(false) }
+    var pdfViewerTitle by remember { mutableStateOf("") }
+    var pdfViewerFile by remember { mutableStateOf<File?>(null) }
+    var pdfViewerTarget by remember { mutableStateOf<String?>(null) }
 
     // MCQ Stage State
     var mcqCanceled by remember { mutableStateOf(editingApp?.mcq?.isCanceled ?: false) }
@@ -171,15 +212,31 @@ fun JobFormScreen(
     // PDF Pickers
     val appPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
-            appPdfUri = uri
-            appPdfName = uri.lastPathSegment?.substringAfterLast('/') ?: "App_Document.pdf"
+            val copied = PdfHelper.copyUriToAppStorage(context, uri, "app_doc")
+            if (copied != null) {
+                appPdfFile = copied
+                appPdfUri = PdfHelper.getFileProviderUri(context, copied)
+                appPdfName = PdfHelper.getFileName(context, uri)
+            } else {
+                appPdfUri = uri
+                appPdfName = PdfHelper.getFileName(context, uri)
+            }
+            appPdfCleared = false
         }
     }
 
     val admitPdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
-            admitPdfUri = uri
-            admitPdfName = uri.lastPathSegment?.substringAfterLast('/') ?: "Admit_Card.pdf"
+            val copied = PdfHelper.copyUriToAppStorage(context, uri, "admit_card")
+            if (copied != null) {
+                admitPdfFile = copied
+                admitPdfUri = PdfHelper.getFileProviderUri(context, copied)
+                admitPdfName = PdfHelper.getFileName(context, uri)
+            } else {
+                admitPdfUri = uri
+                admitPdfName = PdfHelper.getFileName(context, uri)
+            }
+            admitPdfCleared = false
         }
     }
 
@@ -334,13 +391,25 @@ fun JobFormScreen(
                     }
 
                     // Application PDF Upload (Always available)
+                    val hasAppPdf = appPdfFile != null || appPdfUri != null || (editingApp?.appPdfUrl?.isNotBlank() == true && !appPdfCleared)
                     PdfSelectorItem(
                         title = "আবেদন কপি PDF (Application PDF)",
                         fileName = appPdfName,
+                        hasFile = hasAppPdf,
                         onPickFile = { appPdfLauncher.launch("application/pdf") },
+                        onViewFile = {
+                            pdfViewerTitle = "আবেদন কপি PDF (${orgName.ifBlank { "Application" }})"
+                            pdfViewerFile = appPdfFile
+                            pdfViewerTarget = appPdfFile?.let { PdfHelper.getFileProviderUri(context, it).toString() }
+                                ?: appPdfUri?.toString()
+                                ?: editingApp?.appPdfUrl
+                            showPdfViewer = true
+                        },
                         onClear = {
+                            appPdfFile = null
                             appPdfUri = null
                             appPdfName = ""
+                            appPdfCleared = true
                         }
                     )
                 }
@@ -369,13 +438,25 @@ fun JobFormScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        val hasAdmitPdf = admitPdfFile != null || admitPdfUri != null || (editingApp?.admitPdfUrl?.isNotBlank() == true && !admitPdfCleared)
                         PdfSelectorItem(
-                            title = "অ্যাডমিট কার্ড PDF",
+                            title = "অ্যাডমিট কার্ড PDF (Admit Card)",
                             fileName = admitPdfName,
+                            hasFile = hasAdmitPdf,
                             onPickFile = { admitPdfLauncher.launch("application/pdf") },
+                            onViewFile = {
+                                pdfViewerTitle = "অ্যাডমিট কার্ড PDF (${orgName.ifBlank { "Admit Card" }})"
+                                pdfViewerFile = admitPdfFile
+                                pdfViewerTarget = admitPdfFile?.let { PdfHelper.getFileProviderUri(context, it).toString() }
+                                    ?: admitPdfUri?.toString()
+                                    ?: editingApp?.admitPdfUrl
+                                showPdfViewer = true
+                            },
                             onClear = {
+                                admitPdfFile = null
                                 admitPdfUri = null
                                 admitPdfName = ""
+                                admitPdfCleared = true
                             }
                         )
                     }
@@ -514,14 +595,14 @@ fun JobFormScreen(
                                 totalMarks = vivaTotalMarks.trim(),
                                 isCanceled = vivaCanceled
                             ),
-                            appPdfUrl = editingApp?.appPdfUrl ?: "",
-                            admitPdfUrl = editingApp?.admitPdfUrl ?: "",
-                            localAppPdfUri = editingApp?.localAppPdfUri ?: "",
-                            localAdmitPdfUri = editingApp?.localAdmitPdfUri ?: "",
+                            appPdfUrl = if (appPdfCleared) "" else (editingApp?.appPdfUrl ?: ""),
+                            admitPdfUrl = if (admitPdfCleared) "" else (editingApp?.admitPdfUrl ?: ""),
+                            localAppPdfUri = if (appPdfCleared) "" else (appPdfUri?.toString() ?: editingApp?.localAppPdfUri ?: ""),
+                            localAdmitPdfUri = if (admitPdfCleared) "" else (admitPdfUri?.toString() ?: editingApp?.localAdmitPdfUri ?: ""),
                             isCanceled = hasCanceledAny,
                             syncStatus = "Saved"
                         )
-                        onSave(updatedApp, appPdfUri, admitPdfUri)
+                        onSave(updatedApp, if (appPdfCleared) null else appPdfUri, if (admitPdfCleared) null else admitPdfUri)
                     }
                 },
                 enabled = orgName.isNotBlank() && postName.isNotBlank(),
@@ -540,6 +621,19 @@ fun JobFormScreen(
                 )
             }
         }
+    }
+
+    if (showPdfViewer) {
+        PdfViewerDialog(
+            title = pdfViewerTitle,
+            targetFile = pdfViewerFile,
+            targetUriOrUrl = pdfViewerTarget,
+            onDismiss = {
+                showPdfViewer = false
+                pdfViewerFile = null
+                pdfViewerTarget = null
+            }
+        )
     }
 }
 
@@ -858,32 +952,36 @@ private fun ProgressiveStageCard(
 private fun PdfSelectorItem(
     title: String,
     fileName: String,
+    hasFile: Boolean,
     onPickFile: () -> Unit,
+    onViewFile: () -> Unit,
     onClear: () -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(
+            1.dp,
+            if (hasFile) ActionBlue.copy(alpha = 0.45f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+        ),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
                     imageVector = Icons.Default.PictureAsPdf,
                     contentDescription = null,
-                    tint = if (fileName.isNotBlank()) ActionBlue else Color.Gray,
+                    tint = if (hasFile) ActionBlue else Color.Gray,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
@@ -891,26 +989,71 @@ private fun PdfSelectorItem(
                     Text(
                         text = if (fileName.isNotBlank()) fileName else "কোনো ফাইল নির্বাচন করা হয়নি",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (fileName.isNotBlank()) ActionBlue else Color.Gray,
+                        color = if (hasFile) ActionBlue else Color.Gray,
                         maxLines = 1
                     )
                 }
+
+                if (hasFile) {
+                    IconButton(
+                        onClick = onClear,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear file",
+                            tint = StatusFailed,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
 
-            Row {
-                Button(
-                    onClick = onPickFile,
-                    colors = ButtonDefaults.buttonColors(containerColor = ActionBlue),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Select", style = MaterialTheme.typography.labelSmall)
-                }
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (hasFile) {
+                    // Open / View PDF Button
+                    Button(
+                        onClick = onViewFile,
+                        colors = ButtonDefaults.buttonColors(containerColor = ActionBlue),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1.2f)
+                    ) {
+                        Icon(Icons.Default.Visibility, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "দেখুন (View PDF)",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
 
-                if (fileName.isNotBlank()) {
-                    IconButton(onClick = onClear) {
-                        Icon(Icons.Default.Close, contentDescription = "Clear file", tint = StatusFailed)
+                    // Change File Button
+                    OutlinedButton(
+                        onClick = onPickFile,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(0.8f)
+                    ) {
+                        Icon(Icons.Default.AttachFile, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("পরিবর্তন", style = MaterialTheme.typography.labelSmall)
+                    }
+                } else {
+                    // Select File Button
+                    Button(
+                        onClick = onPickFile,
+                        colors = ButtonDefaults.buttonColors(containerColor = ActionBlue),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.AttachFile, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "পিডিএফ নির্বাচন করুন (Select PDF)",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
                     }
                 }
             }
